@@ -21,7 +21,7 @@
             </intent-filter>
         </activity>
 
-        <service android:enabled="true" android:name="com.vomtom.mytestservice.TestService" />
+        <service android:enabled="true" android:name=".services.LocationService" />
 
     </application>
 

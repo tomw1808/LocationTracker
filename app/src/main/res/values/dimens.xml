@@ -7,4 +7,7 @@
     <dimen name="wide_space">24dp</dimen>
     <dimen name="narrow_space">8dp</dimen>
     <dimen name="headline_text_size">24sp</dimen>
+    <dimen name="label_title">34sp</dimen>
+    <dimen name="label_subtext">24sp</dimen>
+    <dimen name="label_smalltext">20sp</dimen>
 </resources>

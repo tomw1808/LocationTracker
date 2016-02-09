@@ -1,4 +1,4 @@
-package com.vomtom.mytestservice;
+package com.vomtom.mytestservice.activities;
 
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -6,39 +6,34 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.location.Address;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
+import android.view.View;
 import android.widget.ListView;
-import android.widget.TextView;
 
-import com.vomtom.mytestservice.listeners.OnGeocoderFinishedListener;
-import com.vomtom.mytestservice.listeners.StartStopRunServiceListener;
+import com.vomtom.mytestservice.Constants;
+import com.vomtom.mytestservice.R;
+import com.vomtom.mytestservice.adapters.LocationAdapter;
 import com.vomtom.mytestservice.services.LocationService;
-import com.vomtom.mytestservice.task.GetCityName;
 
-import java.text.DecimalFormat;
-import java.util.List;
+/**
+ * Created by Thomas on 08.02.2016.
+ */
+public class ListLocationsActivity extends AppCompatActivity {
 
-public class MainActivity extends AppCompatActivity {
 
     LocationService mService;
     boolean mBound = false;
     ListView mLatLng;
-
+    LocationAdapter mLocationAdapter;
     LocationUpdateBroadcastReceiver mBroadcastReceiver;
     ServiceStartedBroadcastReceiver mServiceStartedReceiver;
-    private boolean isFabOpen;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +42,11 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(startStopListener);
+
+        FloatingActionButton fab1 = (FloatingActionButton) findViewById(R.id.fab1);
+        fab1.setOnClickListener(updateLocationListener);
 
         bindToService();
         updateStartStop();
@@ -112,16 +112,15 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindToService() {
 
-        if (!mBound) {
+        if(!mBound) {
             bindService(new Intent(this, LocationService.class), mConnection, Context.BIND_AUTO_CREATE);
         }
 
     }
 
 
-    /**
-     * Defines callbacks for service binding, passed to bindService()
-     */
+
+    /** Defines callbacks for service binding, passed to bindService() */
     private ServiceConnection mConnection = new ServiceConnection() {
 
         @Override
@@ -132,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
             mService = binder.getService();
             mBound = true;
             updateStartStop();
-            updateCityName();
         }
 
         @Override
@@ -142,23 +140,43 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void updateStartStop() {
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        if (mBound) {
-            if (mService.isServiceStarted()) {
-                fab.setOnClickListener(new StartStopRunServiceListener());
-                fab.setImageResource(android.R.drawable.ic_media_pause);
-            } else {
-                fab.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        animateFAB();
-                    }
-                });
-                fab.setImageResource(android.R.drawable.ic_media_play);
+    private View.OnClickListener updateLocationListener = new View.OnClickListener() {
+
+        @Override
+        public void onClick(View v) {
+            if(mBound) {
+                mService.updateLastLocation();
             }
         }
-        updateStats();
+    };
+
+    private View.OnClickListener startStopListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if(mBound) {
+                if (mService.isServiceStarted()) {
+                    mService.stopService();
+                } else {
+                    startService(new Intent(v.getContext(), LocationService.class));
+                }
+            }
+            updateStartStop();
+        }
+    };
+
+    private void updateStartStop() {
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        if(mBound) {
+            if (mService.isServiceStarted()) {
+                fab.setImageResource(android.R.drawable.ic_media_pause);
+            } else {
+                fab.setImageResource(android.R.drawable.ic_media_play);
+            }
+            mLatLng = (ListView) findViewById(R.id.detected_activities_listview);
+
+            mLocationAdapter = new LocationAdapter(this,0,mService.getmLocations());
+            mLatLng.setAdapter(mLocationAdapter);
+        }
     }
 
 
@@ -172,35 +190,9 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-
-           updateCityName();
-            updateStats();
+            updateLocationList();
         }
     }
-
-    private void updateCityName() {
-        if(mBound && mService.getmLocations().size() > 0) {
-            new GetCityName().getCityName(this, mService.getmLocations().get(0), new OnGeocoderFinishedListener() {
-                @Override
-                public void onFinished(List<Address> results) {
-                    if (results.size() > 0) {
-                        StringBuilder builder = new StringBuilder();
-                        int maxLines = results.get(0).getMaxAddressLineIndex();
-                        for (int i = 0; i < maxLines; i++) {
-                            String addressStr = results.get(0).getAddressLine(i);
-                            builder.append(addressStr);
-                            builder.append(" ");
-                        }
-
-                        String currentAddress = builder.toString(); //This is the complete address.
-                        TextView mAddressLine = (TextView) findViewById(R.id.textview_address);
-                        mAddressLine.setText(currentAddress);
-                    }
-                }
-            });
-        }
-    }
-
     /**
      * Receiver for intents sent by DetectedActivitiesIntentService via a sendBroadcast().
      * Receives a list of one or more DetectedActivity objects associated with the current state of
@@ -215,59 +207,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void updateStats() {
-        if (mBound) {
-            TextView mDistance = (TextView) findViewById(R.id.textview_distance);
-            DecimalFormat df = new DecimalFormat("0.00");
-            mDistance.setText(df.format(mService.getDistance() / 1000) + " km");
-
-
-
-            TextView mLastPosition = (TextView) findViewById(R.id.textview_position);
-            if (mService.getmLocations().size() > 0) {
-                mLastPosition.setText("Lat: " + mService.getmLocations().get(0).getLatitude() + " Lng:" + mService.getmLocations().get(0).getLongitude());
-
-                mLastPosition.setOnClickListener(null);
-                mLastPosition.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        Uri gmmIntentUri = Uri.parse("geo:" + mService.getmLocations().get(0).getLatitude() + "," + mService.getmLocations().get(0).getLongitude());
-                        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-                        mapIntent.setPackage("com.google.android.apps.maps");
-                        if (mapIntent.resolveActivity(getPackageManager()) != null) {
-                            startActivity(mapIntent);
-                        }
-                    }
-                });
-            } else {
-                mLastPosition.setText("No Position Yet.");
-            }
-        }
-    }
-
-    public void animateFAB(){
-
-        FloatingActionButton fab1 = (FloatingActionButton) findViewById(R.id.fab_run);
-        FloatingActionButton fab2 = (FloatingActionButton) findViewById(R.id.fab_bike);
-        fab1.setOnClickListener(new StartStopRunServiceListener());
-        Animation fab_open,fab_close;
-        fab_open = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.fab_open);
-        fab_close = AnimationUtils.loadAnimation(getApplicationContext(),R.anim.fab_close);
-        if(isFabOpen){
-
-            fab1.startAnimation(fab_close);
-            fab2.startAnimation(fab_close);
-            fab1.setClickable(false);
-            fab2.setClickable(false);
-            isFabOpen = false;
-
-        } else {
-            fab1.startAnimation(fab_open);
-            fab2.startAnimation(fab_open);
-            fab1.setClickable(true);
-            fab2.setClickable(true);
-            isFabOpen = true;
-        }
+    private void updateLocationList() {
+        mLocationAdapter.notifyDataSetChanged();
     }
 
 
