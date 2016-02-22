@@ -29,6 +29,7 @@
         android:layout_height="wrap_content"
         android:textSize="@dimen/label_subtext"
         android:gravity="center"
+        android:text="No Location so far"
         android:includeFontPadding="true"
         />
     <TextView
@@ -47,6 +48,8 @@
         android:layout_height="wrap_content"
         android:textSize="@dimen/label_smalltext"
         android:gravity="center"
+
+        android:text="No Location so far"
         android:includeFontPadding="true"
         />
     <TextView
